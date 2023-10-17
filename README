@@ -1,0 +1,36 @@
+系统ubuntu20.04，需要是x86 linux
+作者：
+    https://github.com/jianKangS1/mindbgWithUI 作者
+    https://github.com/TartanLlama/minidbg/tree/master  mindbg原型
+    https://github.com/ocornut/imgui  前端显示ui
+
+1、安装依赖
+glfw3库
+sudo apt-get install libglfw3-dev
+OpenGL库
+sudo apt-get install libgl1-mesa-dev
+CMake
+sudo apt-get install cmake
+g++
+sudo apt-get install g++
+objdump
+sudo apt-get install binutils
+
+2、编译程序
+cd ./mindbgWithUI
+mkdir build
+cd build
+cmake ..
+make clean
+make
+
+3、运行
+./mindbg fileYouWantToDbg
+要求fileYouWantToDbg需要以-g选项编译
+
+4、bug
+    1) 源文件的中文注释无法显示
+
+5、功能完善
+    1) 显示程序运行状态
+    2) 用file按钮读取需要调试的文件

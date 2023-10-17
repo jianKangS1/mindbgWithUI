@@ -1,0 +1,15 @@
+--- <0>
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp       2              0x1129
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp       3              0x1137
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp       4              0x1142
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp       5              0x1146
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp       6              0x1149
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp       9              0x114b
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp      10              0x1157
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp      10              0x115e
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp      12              0x1165
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp      12              0x116b
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp      13              0x1171
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp      14              0x1183
+/home/sjk/minidbg/ext/libelfin/examples/test.cpp      15              0x1188
+

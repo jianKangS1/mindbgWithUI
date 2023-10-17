@@ -1,0 +1,8 @@
+## General build artifacts
+*.o
+*.obj
+*.exe
+
+## Commonly used CMake directories
+build*/
+
