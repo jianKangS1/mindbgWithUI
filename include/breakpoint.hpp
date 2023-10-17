@@ -20,7 +20,7 @@ namespace minidbg
         {
             auto data = ptrace(PTRACE_PEEKDATA, m_pid, m_addr, nullptr);
             m_save_data = static_cast<uint8_t>(data & 0xff);
-            uint64_t int3 = 0xcc;
+            uint64_t int3 = 0xcc; // 系统软件中断，程序运行到这个地方，就会执行主函数的wait函数
             uint64_t data_with_int3 = ((data & ~0xff) | int3);
             ptrace(PTRACE_POKEDATA, m_pid, m_addr, data_with_int3);
 
@@ -28,6 +28,7 @@ namespace minidbg
         };
         void disable()
         {
+            // 将原来的的软件中断0xcc替换成原来的数据
             auto data = ptrace(PTRACE_PEEKDATA, m_pid, m_addr, nullptr);
             auto restore_data = ((data & ~0xff) | m_save_data);
             ptrace(PTRACE_POKEDATA, m_pid, m_addr, restore_data);

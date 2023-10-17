@@ -40,6 +40,7 @@ namespace minidbg
     class asmparaser
     {
     public:
+        // 解析由objdump产生的汇编文件
         std::vector<asm_head> get_asm_data(std::string file_path)
         {
 
@@ -47,10 +48,10 @@ namespace minidbg
 
             std::ifstream inFile(file_path);
             std::string line;
-            
+
             if (!inFile)
             {
-                std::cerr << "Failed to open input file "<<file_path << std::endl;
+                std::cerr << "Failed to open input file " << file_path << std::endl;
                 return result;
             }
 
@@ -133,7 +134,7 @@ namespace minidbg
             std::vector<std::string> temp = split(command, ' ');
             asm_head head;
             head.start_addr = std::stol(temp[0], 0, 16);
-            head.function_name = temp[1].substr(1,temp[1].size()-3);
+            head.function_name = temp[1].substr(1, temp[1].size() - 3);
             return head;
         }
     };

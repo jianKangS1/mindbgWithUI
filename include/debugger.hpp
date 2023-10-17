@@ -137,7 +137,7 @@ namespace minidbg
 
             wait_for_signal();
             initialise_load_address();
-            
+
             initialise_run_objdump();
             initialise_load_asm();
 
@@ -207,7 +207,8 @@ namespace minidbg
 
         void handle_command(const std::string &line)
         {
-            // erase line backspace before and after
+            // 后端实现的功能
+            //  erase line backspace before and after
             std::vector<std::string> args = split(line, ' ');
             std::string command = args[0];
 
@@ -295,6 +296,7 @@ namespace minidbg
         }
         void handle_sigtrap(siginfo_t info)
         {
+            // 信号处理函数
             switch (info.si_code)
             {
             case SI_KERNEL:
@@ -306,7 +308,7 @@ namespace minidbg
                 std::cout << "hit breakpoint at address 0x" << std::hex << nowpc << std::endl;
                 auto offset_pc = offset_load_address(nowpc);
                 auto line_entry = get_line_entry_from_pc(offset_pc);
-                print_source(line_entry->file->path, line_entry->line);
+                // print_source(line_entry->file->path, line_entry->line);
                 return;
             }
             case TRAP_TRACE:
@@ -446,44 +448,6 @@ namespace minidbg
             return line_entry;
         }
 
-        void print_source(const std::string &file_name, unsigned line, unsigned n_lines_context = 4)
-        {
-            // 打印源文件代码
-            std::ifstream file{file_name};
-
-            // Work out a window around the desired line
-            auto start_line = (line <= n_lines_context) ? 1 : line - n_lines_context;
-            auto end_line = line + n_lines_context + ((line < n_lines_context) ? n_lines_context - line : 0) + 1;
-
-            char c{};
-            auto current_line = 1u;
-            // Skip lines up until start_line
-            while (current_line != start_line && file.get(c))
-            {
-                if (c == '\n')
-                {
-                    ++current_line;
-                }
-            }
-
-            // Output cursor if we're at the current line
-            std::cout << std::dec << (current_line) << " \t" << (current_line == line ? "> " : "  ");
-
-            // Write lines up until end_line
-            while (current_line <= end_line && file.get(c))
-            {
-                std::cout << c;
-                if (c == '\n')
-                {
-                    ++current_line;
-                    // Output cursor if we're at the current line
-                    std::cout << std::dec << (current_line) << " \t" << (current_line == line ? "> " : "  ");
-                }
-            }
-
-            // Write newline and make sure that the stream is flushed properly
-            std::cout << std::endl;
-        }
 
         siginfo_t get_signal_info()
         {
@@ -648,27 +612,7 @@ namespace minidbg
             return syms;
         }
 
-        // void print_backtrace()
-        // {
-        //     auto output_frame = [frame_number = 0](auto &&func, uint64_t offset) mutable
-        //     {
-        //         std::cout << "frame #" << frame_number++ << ": 0x" << dwarf::at_low_pc(func) + offset
-        //                   << ' ' << dwarf::at_name(func) << std::endl;
-        //     };
-        //     auto current_func = get_function_from_pc(get_offset_pc());
-        //     output_frame(current_func, m_load_address);
 
-        //     auto frame_pointer = get_register_value(m_pid, reg::rbp);
-        //     auto return_address = read_memory(frame_pointer + 8);
-
-        //     while (dwarf::at_name(current_func) != "main")
-        //     {
-        //         current_func = get_function_from_pc(offset_load_address(return_address));
-        //         output_frame(current_func, m_load_address);
-        //         frame_pointer = read_memory(frame_pointer);
-        //         return_address = read_memory(frame_pointer + 8);
-        //     }
-        // };
 
         void initialise_load_address()
         {
