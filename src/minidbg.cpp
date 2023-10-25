@@ -34,7 +34,7 @@ static bool show_option_bar = true;
 static bool show_call_stack = true;
 static bool show_demo_window = false;
 
-// static int windows_status = (ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+//static int windows_status = (ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 static int windows_status = (ImGuiWindowFlags_None);
 
 static void glfw_error_callback(int error, const char *description)

@@ -15,9 +15,13 @@ g++
 sudo apt-get install g++
 objdump
 sudo apt-get install binutils
+python3
+sudo apt-get install python3
 
 2、编译程序
 cd ./mindbgWithUI
+cd ./ext/libelfin
+make
 mkdir build
 cd build
 cmake ..

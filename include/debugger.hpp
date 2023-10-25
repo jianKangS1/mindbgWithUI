@@ -264,7 +264,7 @@ namespace minidbg
                 // std::cout<<get_pc()<<std::endl;
                 auto offset_pc = offset_load_address(get_pc());
                 auto line_entry = get_line_entry_from_pc(offset_pc);
-                print_source(line_entry->file->path, line_entry->line);
+               // print_source(line_entry->file->path, line_entry->line);
             }
             else if (is_prefix(command, "step"))
             {
@@ -286,7 +286,7 @@ namespace minidbg
             {
 
                 auto line_entry = get_line_entry_from_pc(get_offset_pc());
-                print_source(line_entry->file->path, line_entry->line);
+               // print_source(line_entry->file->path, line_entry->line);
                 // print_asm(m_asm_name, get_offset_pc());
             }
             else
@@ -517,7 +517,7 @@ namespace minidbg
             }
 
             auto line_entry = get_line_entry_from_pc(get_offset_pc());
-            print_source(line_entry->file->path, line_entry->line);
+            //print_source(line_entry->file->path, line_entry->line);
         }
 
         void step_over()
