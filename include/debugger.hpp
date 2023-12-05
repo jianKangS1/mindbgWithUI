@@ -26,175 +26,20 @@
 
 namespace minidbg
 {
-    bool is_prefix(const std::string &s, const std::string &of)
-    {
-        // if s is the prefix of of
-        // s="con" of="continue" return true
-        if (s.size() > of.size())
-            return false;
-        return std::equal(s.begin(), s.end(), of.begin());
-    }
 
     class debugger
     {
     public:
-        // 需要展示的数据
-        std::vector<asm_head> m_asm_vct;
-        std::vector<std::string> m_src_vct;
-        std::vector<std::pair<std::string, u_int64_t>> get_ram_vct()
+        debugger(std::string prog_name, pid_t pid)
+            : m_prog_name{std::move(prog_name)}, m_pid{pid}
         {
-            std::vector<std::pair<std::string, u_int64_t>> m_ram_vct;
-            for (const auto &rd : g_register_descriptors)
-            {
-                m_ram_vct.push_back(std::make_pair(rd.name, get_register_value(m_pid, rd.r)));
-            }
-            return m_ram_vct;
-        };
-
-        unsigned get_src_line()
-        {
-            auto line_entry = get_line_entry_from_pc(get_offset_pc());
-            return line_entry->line;
-        }
-
-        uint64_t get_pc()
-        {
-            return get_register_value(m_pid, reg::rip);
-        };
-
-        uint64_t get_rbp()
-        {
-            return get_register_value(m_pid, reg::rbp);
-        }
-
-        uint64_t get_rsp()
-        {
-            return get_register_value(m_pid, reg::rsp);
-        }
-
-        std::vector<std::pair<uint64_t, std::string>> get_backtrace_vct()
-        {
-            std::vector<std::pair<uint64_t, std::string>> backtrace_vct;
-
-            auto current_func = get_function_from_pc(get_pc());
-
-            if (current_func.end_addr == 0)
-            {
-                return backtrace_vct;
-            }
-
-            backtrace_vct.push_back(std::make_pair(current_func.start_addr, current_func.function_name));
-
-            auto frame_pointer = get_register_value(m_pid, reg::rbp);
-            auto return_address = read_memory(frame_pointer + 8);
-
-            while (current_func.function_name != "main")
-            {
-
-                current_func = get_function_from_pc(return_address);
-                if (current_func.end_addr == 0)
-                {
-                    return backtrace_vct;
-                }
-                backtrace_vct.push_back(std::make_pair(current_func.start_addr, current_func.function_name));
-
-                frame_pointer = read_memory(frame_pointer);
-                return_address = read_memory(frame_pointer + 8);
-            }
-            return backtrace_vct;
-        }
-
-        std::vector<std::pair<uint64_t, std::vector<uint8_t>>> get_global_stack_vct(uint64_t start_addr, uint64_t end_addr)
-        {
-            std::vector<std::pair<uint64_t, std::vector<uint8_t>>> global_stack_vct;
-            for (auto i = start_addr; i < end_addr; i += 8)
-            {
-                uint64_t temp_data = read_memory(i);
-                std::vector<uint8_t> temp_bite_vct(8);
-                // 提取uint64_t的每一个字节
-                for (auto weishu = 0; weishu < 8; weishu++)
-                {
-                    temp_bite_vct[weishu] = (uint8_t)((temp_data >> (8 * weishu)) & 0xff);
-                }
-
-                global_stack_vct.push_back(std::make_pair(i, temp_bite_vct));
-            }
-            return global_stack_vct;
-        }
-
-        debugger()
-        {
-        }
-
-        void initGdb(std::string prog_name, pid_t pid)
-        {
-            m_prog_name = std::move(prog_name);
-            m_pid = pid;
             m_asm_name = m_prog_name + ".asm";
             auto fd = open(m_prog_name.c_str(), O_RDONLY);
             m_elf = elf::elf{elf::create_mmap_loader(fd)};
             m_dwarf = dwarf::dwarf{dwarf::elf::create_loader(m_elf)};
-
-            wait_for_signal();
-            initialise_load_address();
-
-            initialise_run_objdump();
-            initialise_load_asm();
-
-            initialise_load_src();
-
-            std::cout << "init minigdb successfully\n";
         }
 
-        void continue_execution()
-        {
-            step_over_breakpoint();
-            // continue execute the sub program
-            ptrace(PTRACE_CONT, m_pid, nullptr, nullptr);
-            wait_for_signal();
-        }
-
-        void break_execution(std::string command)
-        {
-
-            // 0x<hexadecimal> -> address breakpoint
-            // <line>:<filename> -> line number breakpoint
-            // <anything else> -> function name breakpoint
-            if (command[0] == '0' && command[1] == 'x')
-            {
-                std::string addr{command, 2}; // naively assume that the user has written 0xADDRESS like 0xff
-                set_breakpoint_at_address(std::stol(addr, 0, 16) + m_load_address);
-            }
-            else if (command.find(':') != std::string::npos)
-            {
-                auto file_and_line = split(command, ':');
-                set_breakpoint_at_source_file(file_and_line[0], std::stoi(file_and_line[1]));
-            }
-            else
-            {
-                set_breakpoint_at_function(command);
-            }
-        }
-
-        void next_execution()
-        {
-            step_over();
-        }
-
-        void finish_execution()
-        {
-            step_out();
-        }
-
-        void step_into_execution()
-        {
-            step_in();
-        }
-
-        void si_execution()
-        {
-            single_step_instruction_with_breakpoint_check();
-        }
+        void run();
 
     private:
         std::string m_prog_name;
@@ -204,99 +49,12 @@ namespace minidbg
         dwarf::dwarf m_dwarf;
         elf::elf m_elf;
         uint64_t m_load_address; // 偏移量，很重要
+        std::vector<asm_head> m_asm_vct;
 
-        void handle_command(const std::string &line)
-        {
-            // 后端实现的功能
-            //  erase line backspace before and after
-            std::vector<std::string> args = split(line, ' ');
-            std::string command = args[0];
+        void handle_command(const std::string &line);
 
-            if (is_prefix(command, "break"))
-            {
-            }
-            else if (is_prefix(command, "register"))
-            {
-                if (is_prefix(args[1], "dump"))
-                {
-                    dump_registers();
-                }
-                else if (is_prefix(args[1], "read"))
-                {
-                    std::cout << get_register_value(m_pid, get_register_from_name(args[2])) << std::endl;
-                }
-                else if (is_prefix(args[1], "write"))
-                {
-                    std::string val{args[3], 2}; // assume 0xVALUE
-                    set_register_value(m_pid, get_register_from_name(args[2]), std::stol(val, 0, 16));
-                    std::cout << "write data " << args[3] << " into reg " << args[2] << " successfully\n";
-                }
-                else
-                {
-                    std::cout << "unknow command for register\n";
-                }
-            }
-            else if (is_prefix(command, "symbol"))
-            {
-                auto syms = lookup_symbol(args[1]);
-                for (auto &s : syms)
-                {
-                    std::cout << s.name << " " << to_string(s.type) << " 0x" << std::hex << s.addr << std::endl;
-                }
-            }
-            else if (is_prefix(command, "memory"))
-            {
-                std::string addr{args[2], 2}; // assume 0xADDRESS
-
-                if (is_prefix(args[1], "read"))
-                {
-                    std::cout << std::hex << read_memory(std::stol(addr, 0, 16)) << std::endl;
-                }
-                if (is_prefix(args[1], "write"))
-                {
-                    std::string val{args[3], 2}; // assume 0xVAL
-                    write_memory(std::stol(addr, 0, 16), std::stol(val, 0, 16));
-                }
-            }
-            else if (is_prefix(command, "si"))
-            {
-                single_step_instruction_with_breakpoint_check();
-                // std::cout<<get_pc()<<std::endl;
-                auto offset_pc = offset_load_address(get_pc());
-                auto line_entry = get_line_entry_from_pc(offset_pc);
-               // print_source(line_entry->file->path, line_entry->line);
-            }
-            else if (is_prefix(command, "step"))
-            {
-                step_in();
-            }
-            else if (is_prefix(command, "next"))
-            {
-                step_over();
-            }
-            else if (is_prefix(command, "finish"))
-            {
-                step_out();
-            }
-            else if (is_prefix(command, "backtrace"))
-            {
-                // print_backtrace();
-            }
-            else if (is_prefix(command, "ls"))
-            {
-
-                auto line_entry = get_line_entry_from_pc(get_offset_pc());
-               // print_source(line_entry->file->path, line_entry->line);
-                // print_asm(m_asm_name, get_offset_pc());
-            }
-            else
-            {
-                std::cerr << "unknow command\n";
-            }
-        }
         void handle_sigtrap(siginfo_t info)
         {
-            // 信号处理函数
             switch (info.si_code)
             {
             case SI_KERNEL:
@@ -308,7 +66,7 @@ namespace minidbg
                 std::cout << "hit breakpoint at address 0x" << std::hex << nowpc << std::endl;
                 auto offset_pc = offset_load_address(nowpc);
                 auto line_entry = get_line_entry_from_pc(offset_pc);
-                // print_source(line_entry->file->path, line_entry->line);
+                print_source(line_entry->file->path, line_entry->line);
                 return;
             }
             case TRAP_TRACE:
@@ -319,6 +77,14 @@ namespace minidbg
                 return;
             }
         };
+
+        void continue_execution()
+        {
+            step_over_breakpoint();
+            // continue execute the sub program
+            ptrace(PTRACE_CONT, m_pid, nullptr, nullptr);
+            wait_for_signal();
+        }
 
         uint64_t offset_load_address(uint64_t addr)
         {
@@ -358,6 +124,11 @@ namespace minidbg
             {
                 std::cout << rd.name << "  0x" << std::setfill('0') << std::setw(16) << std::hex << get_register_value(m_pid, rd.r) << std::endl;
             }
+        };
+
+        uint64_t get_pc()
+        {
+            return get_register_value(m_pid, reg::rip);
         };
 
         void set_pc(uint64_t pc)
@@ -404,18 +175,26 @@ namespace minidbg
             }
         };
 
-        asm_head get_function_from_pc(uint64_t pc)
+        dwarf::die get_function_from_pc(uint64_t pc)
         {
-            for (auto &head : m_asm_vct)
+            for (auto &cu : m_dwarf.compilation_units())
             {
-                if (pc >= head.start_addr && pc <= head.end_addr)
+                if (die_pc_range(cu.root()).contains(pc))
                 {
-                    return head;
+                    for (const auto &die : cu.root())
+                    {
+                        if (die.tag == dwarf::DW_TAG::subprogram)
+                        {
+                            if (die_pc_range(die).contains(pc))
+                            {
+                                return die;
+                            }
+                        }
+                    }
                 }
             }
-            asm_head temp;
-            temp.end_addr = 0;
-            return temp;
+            std::cout << "i am in get function from pc";
+            throw std::out_of_range{"Cannot find function"};
         }
 
         dwarf::line_table::iterator get_line_entry_from_pc(uint64_t pc)
@@ -448,6 +227,75 @@ namespace minidbg
             return line_entry;
         }
 
+        void print_source(const std::string &file_name, unsigned line, unsigned n_lines_context = 4)
+        {
+            // 打印源文件代码
+            std::ifstream file{file_name};
+
+            // Work out a window around the desired line
+            auto start_line = (line <= n_lines_context) ? 1 : line - n_lines_context;
+            auto end_line = line + n_lines_context + ((line < n_lines_context) ? n_lines_context - line : 0) + 1;
+
+            char c{};
+            auto current_line = 1u;
+            // Skip lines up until start_line
+            while (current_line != start_line && file.get(c))
+            {
+                if (c == '\n')
+                {
+                    ++current_line;
+                }
+            }
+
+            // Output cursor if we're at the current line
+            std::cout << std::dec << (current_line) << " \t" << (current_line == line ? "> " : "  ");
+
+            // Write lines up until end_line
+            while (current_line <= end_line && file.get(c))
+            {
+                std::cout << c;
+                if (c == '\n')
+                {
+                    ++current_line;
+                    // Output cursor if we're at the current line
+                    std::cout << std::dec << (current_line) << " \t" << (current_line == line ? "> " : "  ");
+                }
+            }
+
+            // Write newline and make sure that the stream is flushed properly
+            std::cout << std::endl;
+        }
+
+        void print_asm(const std::string file_name, uint64_t addr, unsigned n_lines_context = 4)
+        {
+            for (auto asm_head_entry : m_asm_vct)
+            {
+                if (addr <= asm_head_entry.end_addr && addr >= asm_head_entry.start_addr)
+                {
+                    std::cout << "in function " << asm_head_entry.function_name << "  offset " << asm_head_entry.start_addr << "\n";
+                    for (auto temp_asm_entry : asm_head_entry.asm_entris)
+                    {
+                        if (temp_asm_entry.addr == addr)
+                        {
+                            n_lines_context--;
+                            std::cout << ">\t" << temp_asm_entry.asm_code << '\n';
+                        }
+                        else if (temp_asm_entry.addr > addr)
+                        {
+                            n_lines_context--;
+                            std::cout << "\t" << temp_asm_entry.asm_code << '\n';
+                        }
+
+                        if (n_lines_context == 0)
+                        {
+                            break;
+                        }
+                    }
+
+                    break;
+                }
+            }
+        }
 
         siginfo_t get_signal_info()
         {
@@ -517,7 +365,7 @@ namespace minidbg
             }
 
             auto line_entry = get_line_entry_from_pc(get_offset_pc());
-            //print_source(line_entry->file->path, line_entry->line);
+            print_source(line_entry->file->path, line_entry->line);
         }
 
         void step_over()
@@ -612,7 +460,27 @@ namespace minidbg
             return syms;
         }
 
+        void print_backtrace()
+        {
+            auto output_frame = [frame_number = 0](auto &&func, uint64_t offset) mutable
+            {
+                std::cout << "frame #" << frame_number++ << ": 0x" << dwarf::at_low_pc(func) + offset
+                          << ' ' << dwarf::at_name(func) << std::endl;
+            };
+            auto current_func = get_function_from_pc(get_offset_pc());
+            output_frame(current_func, m_load_address);
 
+            auto frame_pointer = get_register_value(m_pid, reg::rbp);
+            auto return_address = read_memory(frame_pointer + 8);
+
+            while (dwarf::at_name(current_func) != "main")
+            {
+                current_func = get_function_from_pc(offset_load_address(return_address));
+                output_frame(current_func, m_load_address);
+                frame_pointer = read_memory(frame_pointer);
+                return_address = read_memory(frame_pointer + 8);
+            }
+        };
 
         void initialise_load_address()
         {
@@ -633,17 +501,9 @@ namespace minidbg
 
         void initialise_load_asm()
         {
+            initialise_run_objdump();
             asmparaser paraser;
             m_asm_vct = move(paraser.get_asm_data(m_asm_name));
-            for (auto &head : m_asm_vct)
-            {
-                head.start_addr += m_load_address;
-                head.end_addr += m_load_address;
-                for (auto &entry : head.asm_entris)
-                {
-                    entry.addr += m_load_address;
-                }
-            }
         }
 
         void initialise_run_objdump()
@@ -660,32 +520,6 @@ namespace minidbg
                 std::cerr << "error when run command: " + command << std::endl;
             }
         }
-
-        void initialise_load_src()
-        {
-            // 获取汇编文件的路径
-            auto offset_pc = offset_load_address(get_pc());
-            auto line_entry = m_dwarf.compilation_units().begin()->get_line_table().begin();
-            std::string file_path = std::string(line_entry->file->path);
-            // std::cout<<"trying to open src "<<file_path<<"\n";
-
-            std::ifstream inFile(file_path);
-            std::string line;
-
-            if (!inFile)
-            {
-                std::cerr << "Failed to open input file " << file_path << std::endl;
-                return;
-            }
-
-            while (std::getline(inFile, line))
-            {
-                m_src_vct.push_back(line);
-            }
-
-            inFile.close();
-            return;
-        };
     };
 
 }
